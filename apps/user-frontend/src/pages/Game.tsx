@@ -7,6 +7,7 @@ import { getRoom, joinRoom as apiJoinRoom, leaveRoom as apiLeaveRoom } from '@/l
 import { PokerTable } from '@/components/PokerTable';
 import { JoinTableModal } from '@/components/JoinTableModal';
 import { ArrowLeft, Wifi, WifiOff, LogOut, Coins, Spade } from 'lucide-react';
+import type { PlayerStatus, RoomStatus } from '@poker/types';
 
 interface RoomData {
   id: string;
@@ -16,13 +17,13 @@ interface RoomData {
   minBuyIn: number;
   maxBuyIn: number;
   maxPlayers: number;
-  status: string;
+  status: RoomStatus;
   players: Array<{
     id: string;
     userId: string;
     seatNumber: number;
     stack: number;
-    status: string;
+    status: PlayerStatus;
     username: string;
   }>;
 }
@@ -32,7 +33,7 @@ export function GamePage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const updateBalance = useAuthStore((s) => s.updateBalance);
-  const { roomId, setRoomId, reset } = useGameStore();
+  const { setRoomId, reset } = useGameStore();
   const { isConnected, joinRoom, leaveRoom } = useWebSocket();
 
   const [room, setRoom] = useState<RoomData | null>(null);

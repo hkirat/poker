@@ -287,7 +287,7 @@ export class TestWebSocketClient {
     if (msg.type !== "joined_room") {
       // Put it back and wait for joined_room
       this.messageQueue.push(msg);
-      return this.waitForMessageType("joined_room");
+      return this.waitForMessageType("joined_room", 10000);
     }
     return msg;
   }

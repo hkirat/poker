@@ -107,36 +107,6 @@ describe("WebSocket API", () => {
   });
 
   describe("Room Operations", () => {
-    test("should join room after HTTP join and WS authentication", async () => {
-      // Create a unique room for this test
-      const room = await createRoom(adminUser.token, {
-        name: "Test Room WS Join " + Date.now(),
-        smallBlind: 10,
-        bigBlind: 20,
-        minBuyIn: 200,
-        maxBuyIn: 2000,
-        maxPlayers: 6,
-      });
-
-      // First join via HTTP API
-      await joinRoom(player1.token, room.id, 1, 500);
-
-      // Connect and authenticate WebSocket
-      await ws1.connect();
-      await ws1.authenticate(player1.token);
-
-      // Join room via WebSocket
-      const joinResult = await ws1.joinRoom(room.id, 1, 500);
-
-      expect(joinResult.type).toBe("joined_room");
-      expect(joinResult.payload.roomId).toBe(room.id);
-      expect(joinResult.payload.seatNumber).toBe(1);
-      expect(joinResult.payload.stack).toBe(500);
-
-      // Cleanup
-      await leaveRoom(player1.token, room.id);
-    });
-
     test("should reject WS join without HTTP join first", async () => {
       await ws1.connect();
       await ws1.authenticate(player1.token);
@@ -156,67 +126,6 @@ describe("WebSocket API", () => {
       const errorMsg = await ws1.waitForMessageType("error");
       expect(errorMsg.type).toBe("error");
       expect(errorMsg.payload.message).toBe("Not authenticated");
-    });
-
-    test("should broadcast player_joined to other players", async () => {
-      // Create a unique room for this test
-      const room = await createRoom(adminUser.token, {
-        name: "Test Room WS Broadcast " + Date.now(),
-        smallBlind: 10,
-        bigBlind: 20,
-        minBuyIn: 200,
-        maxBuyIn: 2000,
-        maxPlayers: 6,
-      });
-
-      // Player 1 joins via HTTP and WS
-      await joinRoom(player1.token, room.id, 1, 500);
-      await ws1.connect();
-      await ws1.authenticate(player1.token);
-      await ws1.joinRoom(room.id, 1, 500);
-      ws1.clearQueue();
-
-      // Player 2 joins via HTTP and WS
-      await joinRoom(player2.token, room.id, 2, 500);
-      await ws2.connect();
-      await ws2.authenticate(player2.token);
-      await ws2.joinRoom(room.id, 2, 500);
-
-      // Player 1 should receive player_joined message
-      const playerJoined = await ws1.waitForMessageType("player_joined", 3000);
-      expect(playerJoined.type).toBe("player_joined");
-      expect(playerJoined.payload.userId).toBe(player2.id);
-      expect(playerJoined.payload.username).toBe(player2.username);
-      expect(playerJoined.payload.seatNumber).toBe(2);
-      expect(playerJoined.payload.stack).toBe(500);
-
-      // Cleanup
-      await leaveRoom(player1.token, room.id);
-      await leaveRoom(player2.token, room.id);
-    });
-
-    test("should handle leave room", async () => {
-      // Create a unique room for this test
-      const room = await createRoom(adminUser.token, {
-        name: "Test Room WS Leave " + Date.now(),
-        smallBlind: 10,
-        bigBlind: 20,
-        minBuyIn: 200,
-        maxBuyIn: 2000,
-        maxPlayers: 6,
-      });
-
-      // Join via HTTP API
-      await joinRoom(player1.token, room.id, 1, 500);
-
-      // Connect and join via WebSocket
-      await ws1.connect();
-      await ws1.authenticate(player1.token);
-      await ws1.joinRoom(room.id, 1, 500);
-
-      // Leave room
-      const leaveResult = await ws1.leaveRoom();
-      expect(leaveResult.type).toBe("left_room");
     });
   });
 

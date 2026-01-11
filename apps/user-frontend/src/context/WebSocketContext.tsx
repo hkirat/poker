@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useState, ReactNode } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { useGameStore } from '@/store/game';
-import type { PlayerAction } from '@poker/types';
+import type { PlayerAction, Card, Player, GamePhase } from '@poker/types';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
 
@@ -38,25 +38,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         const payload = message.payload as {
           phase?: string;
           pot?: number;
-          communityCards?: Array<{ suit: string; rank: string }>;
-          players?: Array<{
-            id: string;
-            oderId: string;
-            username: string;
-            seatNumber: number;
-            stack: number;
-            status: string;
-            currentBet: number;
-          }>;
+          communityCards?: Card[];
+          players?: Player[];
           currentPlayerIndex?: number;
           dealerIndex?: number;
           currentBet?: number;
           minRaise?: number;
-          yourCards?: Array<{ suit: string; rank: string }>;
+          yourCards?: Card[];
         };
 
         updateGameState({
-          phase: payload.phase as 'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown',
+          phase: payload.phase as GamePhase,
           pot: payload.pot,
           communityCards: payload.communityCards,
           players: payload.players,

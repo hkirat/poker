@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/store/auth';
+import type { PlayerStatus, RoomStatus } from '@poker/types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -68,7 +69,7 @@ export async function getRooms() {
     minBuyIn: number;
     maxBuyIn: number;
     maxPlayers: number;
-    status: string;
+    status: RoomStatus;
     currentPlayerCount: number;
   }>>('/api/rooms');
 }
@@ -82,13 +83,13 @@ export async function getRoom(id: string) {
     minBuyIn: number;
     maxBuyIn: number;
     maxPlayers: number;
-    status: string;
+    status: RoomStatus;
     players: Array<{
       id: string;
       userId: string;
       seatNumber: number;
       stack: number;
-      status: string;
+      status: PlayerStatus;
       username: string;
     }>;
     currentPlayerCount: number;

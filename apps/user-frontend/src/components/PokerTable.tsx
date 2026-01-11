@@ -4,6 +4,7 @@ import { PlayingCard } from './PlayingCard';
 import { PlayerSeat } from './PlayerSeat';
 import { ActionButtons } from './ActionButtons';
 import { Sparkles, Trophy, Coins } from 'lucide-react';
+import type { PlayerStatus } from '@poker/types';
 
 interface RoomData {
   id: string;
@@ -16,7 +17,7 @@ interface RoomData {
     userId: string;
     seatNumber: number;
     stack: number;
-    status: string;
+    status: PlayerStatus;
     username: string;
   }>;
 }

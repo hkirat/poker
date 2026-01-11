@@ -54,23 +54,58 @@ async function waitForWebSocket(url: string, timeout: number): Promise<void> {
   throw new Error(`WebSocket at ${url} did not start within ${timeout}ms`);
 }
 
+async function checkServiceRunning(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function checkWebSocketRunning(url: string): Promise<boolean> {
+  try {
+    const ws = new WebSocket(url);
+    return await new Promise((resolve) => {
+      ws.on("open", () => {
+        ws.close();
+        resolve(true);
+      });
+      ws.on("error", () => resolve(false));
+      setTimeout(() => resolve(false), 1000);
+    });
+  } catch {
+    return false;
+  }
+}
+
 async function startServices(): Promise<void> {
   if (servicesStarted) return;
+
+  // Check if services are already running
+  const backendRunning = await checkServiceRunning(BACKEND_URL + "/health");
+  const wsRunning = await checkWebSocketRunning(WS_URL);
+
+  if (backendRunning && wsRunning) {
+    console.log("Services already running, skipping startup");
+    servicesStarted = true;
+    return;
+  }
 
   console.log("Starting backend service...");
   backendProcess = Bun.spawn(["bun", "run", "src/index.ts"], {
     cwd: "/Users/harkirat/Projects/poker/apps/backend",
     env: { ...process.env, PORT: String(BACKEND_PORT) },
-    stdout: "inherit",
-    stderr: "inherit",
+    stdout: "pipe",
+    stderr: "pipe",
   });
 
   console.log("Starting websocket service...");
   websocketProcess = Bun.spawn(["bun", "run", "src/index.ts"], {
     cwd: "/Users/harkirat/Projects/poker/apps/websocket",
     env: { ...process.env, WS_PORT: String(WS_PORT) },
-    stdout: "inherit",
-    stderr: "inherit",
+    stdout: "pipe",
+    stderr: "pipe",
   });
 
   await waitForService(BACKEND_URL + "/health", 15000);
