@@ -12,7 +12,11 @@
     "db:generate": "bun run --cwd packages/db generate",
     "db:migrate": "bun run --cwd packages/db migrate",
     "db:push": "bun run --cwd packages/db push",
-    "db:studio": "bun run --cwd packages/db studio"
+    "db:studio": "bun run --cwd packages/db studio",
+    "start:backend": "bun run --cwd apps/backend start",
+    "start:websocket": "bun run --cwd apps/websocket start",
+    "start:user-frontend": "bunx serve apps/user-frontend/dist -s -l 5173",
+    "start:admin-frontend": "bunx serve apps/admin-frontend/dist -s -l 5174"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
