@@ -1,0 +1,22 @@
+{
+  "name": "@poker/tests",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "test:auth": "bun test auth.test.ts",
+    "test:rooms": "bun test rooms.test.ts",
+    "test:websocket": "bun test websocket.test.ts",
+    "test:game": "bun test game.test.ts"
+  },
+  "dependencies": {
+    "@poker/db": "workspace:*",
+    "@poker/types": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/ws": "^8.5.12",
+    "typescript": "^5.3.3"
+  }
+}

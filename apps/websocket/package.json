@@ -1,0 +1,22 @@
+{
+  "name": "@poker/websocket",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@poker/db": "workspace:*",
+    "@poker/types": "workspace:*",
+    "ws": "^8.18.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.12",
+    "@types/jsonwebtoken": "^9.0.6",
+    "typescript": "^5.3.3"
+  }
+}
