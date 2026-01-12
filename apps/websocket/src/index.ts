@@ -323,8 +323,12 @@ function handleDisconnect(ws: WebSocket): void {
   if (connection?.roomId && connection.user) {
     const gameRoom = gameRooms.get(connection.roomId);
     if (gameRoom) {
-      // Don't remove player on disconnect - they might reconnect
-      // Just mark them as disconnected
+      // Check if this user is a player in the game
+      if (gameRoom.playerCount > 0) {
+        // Handle player disconnect with reconnection timeout
+        gameRoom.handlePlayerDisconnect(connection.user.userId);
+      }
+      // Also remove from spectators if they were spectating
       gameRoom.removeSpectator(connection.user.userId);
     }
   }

@@ -13,11 +13,13 @@ import { evaluateHand, compareHands } from './hand-evaluator';
 import { db, tablePlayers, users, gameHistory, transactions, eq, and } from '@poker/db';
 
 const TURN_TIME_LIMIT = 30000; // 30 seconds
+const DISCONNECT_TIMEOUT = 60000; // 60 seconds to reconnect
 
 interface RoomPlayer extends Player {
   userId: string;
   ws: WebSocket;
   holeCards: Card[];
+  disconnectedAt?: number;
 }
 
 export interface RoomConfig {
@@ -33,6 +35,7 @@ export interface RoomConfig {
 export class GameRoom {
   private players: Map<string, RoomPlayer> = new Map();
   private spectators: Map<string, WebSocket> = new Map();
+  private disconnectTimers: Map<string, Timer> = new Map();
   private deck: Deck = new Deck();
   private gameState: GameState | null = null;
   private turnTimer: Timer | null = null;
@@ -59,7 +62,17 @@ export class GameRoom {
     if (this.players.has(userId)) {
       const existingPlayer = this.players.get(userId)!;
       existingPlayer.ws = ws;
-      console.log(`Player ${username} reconnected`);
+      existingPlayer.disconnectedAt = undefined;
+
+      // Cancel any pending disconnect timer
+      const disconnectTimer = this.disconnectTimers.get(userId);
+      if (disconnectTimer) {
+        clearTimeout(disconnectTimer);
+        this.disconnectTimers.delete(userId);
+        console.log(`Player ${username} reconnected - disconnect timer cancelled`);
+      } else {
+        console.log(`Player ${username} reconnected`);
+      }
 
       // Send current game state to reconnected player
       if (this.gameState) {
@@ -125,6 +138,13 @@ export class GameRoom {
       return 0;
     }
 
+    // Clear any pending disconnect timer
+    const disconnectTimer = this.disconnectTimers.get(userId);
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      this.disconnectTimers.delete(userId);
+    }
+
     const stack = player.stack;
 
     // If player was in active game, handle their departure but keep them visible
@@ -179,10 +199,56 @@ export class GameRoom {
     return stack;
   }
 
+  handlePlayerDisconnect(userId: string): void {
+    const player = this.players.get(userId);
+    if (!player) {
+      return;
+    }
+
+    // Mark player as disconnected
+    player.disconnectedAt = Date.now();
+    console.log(`Player ${player.username} disconnected - starting ${DISCONNECT_TIMEOUT / 1000}s timeout`);
+
+    // Broadcast disconnect status
+    this.broadcast({
+      type: 'player_disconnected',
+      payload: {
+        userId,
+        username: player.username,
+        reconnectTimeout: DISCONNECT_TIMEOUT,
+      },
+    });
+
+    // Start disconnect timer - if they don't reconnect, sit them out
+    const timer = setTimeout(async () => {
+      this.disconnectTimers.delete(userId);
+
+      const currentPlayer = this.players.get(userId);
+      if (currentPlayer && currentPlayer.disconnectedAt) {
+        console.log(`Player ${currentPlayer.username} failed to reconnect - sitting out`);
+        await this.sitOutPlayer(userId, 'disconnect');
+      }
+    }, DISCONNECT_TIMEOUT);
+
+    this.disconnectTimers.set(userId, timer);
+  }
+
+  isPlayerDisconnected(userId: string): boolean {
+    const player = this.players.get(userId);
+    return player ? !!player.disconnectedAt : false;
+  }
+
   async sitOutPlayer(userId: string, reason: 'timeout' | 'disconnect' = 'timeout'): Promise<void> {
     const player = this.players.get(userId);
     if (!player) {
       return;
+    }
+
+    // Clear any pending disconnect timer
+    const disconnectTimer = this.disconnectTimers.get(userId);
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      this.disconnectTimers.delete(userId);
     }
 
     console.log(`Sitting out player ${player.username} (${reason}), returning ${player.stack} chips`);
