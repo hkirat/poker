@@ -44,47 +44,43 @@ export function JoinTableModal({ room, onJoin, onClose }: JoinTableModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade-in">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex justify-end pointer-events-none">
+      {/* Backdrop - subtle, allows seeing table */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-auto"
         style={{
-          background: 'radial-gradient(ellipse at center, hsl(240 15% 6% / 0.95) 0%, hsl(240 15% 4% / 0.98) 100%)',
-          backdropFilter: 'blur(8px)',
+          background: 'linear-gradient(90deg, transparent 0%, hsl(240 15% 4% / 0.4) 50%, hsl(240 15% 4% / 0.7) 100%)',
         }}
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* Side Panel */}
       <div
-        className="relative w-full max-w-lg rounded-3xl p-8 animate-scale-in"
+        className="relative w-full max-w-md h-full overflow-y-auto pointer-events-auto animate-slide-in-right"
         style={{
-          background: 'linear-gradient(135deg, hsl(240 15% 10%) 0%, hsl(240 15% 6%) 100%)',
-          border: '1px solid hsl(32 94% 44% / 0.25)',
-          boxShadow: `
-            0 25px 80px rgba(0, 0, 0, 0.6),
-            0 0 60px hsl(32 94% 44% / 0.1),
-            inset 0 1px 0 hsl(32 94% 44% / 0.1)
-          `,
+          background: 'linear-gradient(135deg, hsl(240 15% 10% / 0.98) 0%, hsl(240 15% 6% / 0.98) 100%)',
+          borderLeft: '1px solid hsl(32 94% 44% / 0.25)',
+          boxShadow: `-20px 0 60px rgba(0, 0, 0, 0.5), 0 0 40px hsl(32 94% 44% / 0.1)`,
+          backdropFilter: 'blur(20px)',
         }}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-display gold-text-gradient mb-2">
-            Join {room.name}
-          </h2>
-          <p className="text-gray-500">Select your seat and buy-in amount</p>
-        </div>
-
-        <div className="space-y-6">
+        {/* Panel content with padding */}
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-display gold-text-gradient mb-1">
+                Join Table
+              </h2>
+              <p className="text-gray-500 text-sm">{room.name}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           {/* Table Info */}
           <div
             className="rounded-xl p-5 space-y-3"

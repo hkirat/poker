@@ -190,6 +190,21 @@
     50% { transform: scale(1.05); }
   }
 
+  @keyframes slide-in-right {
+    0% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
   .animate-shimmer {
     background: linear-gradient(
       90deg,
