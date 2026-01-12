@@ -198,17 +198,30 @@ export class TestWebSocketClient {
   private ws: WebSocket | null = null;
   private messageQueue: any[] = [];
   private messageResolvers: ((msg: any) => void)[] = [];
+  private debug: boolean = false;
+
+  constructor(debug: boolean = false) {
+    this.debug = debug;
+  }
+
+  private log(...args: any[]): void {
+    if (this.debug) {
+      console.log("[WS]", ...args);
+    }
+  }
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(WS_URL);
 
       this.ws.on("open", () => {
+        this.log("Connected");
         resolve();
       });
 
       this.ws.on("message", (data) => {
         const message = JSON.parse(data.toString());
+        this.log("Received:", message.type);
         if (this.messageResolvers.length > 0) {
           const resolver = this.messageResolvers.shift()!;
           resolver(message);
@@ -217,7 +230,10 @@ export class TestWebSocketClient {
         }
       });
 
-      this.ws.on("error", reject);
+      this.ws.on("error", (err) => {
+        this.log("Error:", err);
+        reject(err);
+      });
     });
   }
 
@@ -225,28 +241,22 @@ export class TestWebSocketClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not connected");
     }
+    this.log("Sending:", type);
     this.ws.send(JSON.stringify({ type, payload }));
   }
 
   async waitForMessage(timeout: number = 5000): Promise<any> {
-    if (this.messageQueue.length > 0) {
-      return this.messageQueue.shift();
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      if (this.messageQueue.length > 0) {
+        return this.messageQueue.shift();
+      }
+      // Yield to event loop to allow messages to be processed
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        const index = this.messageResolvers.indexOf(resolve);
-        if (index > -1) {
-          this.messageResolvers.splice(index, 1);
-        }
-        reject(new Error("Timeout waiting for message"));
-      }, timeout);
-
-      this.messageResolvers.push((msg) => {
-        clearTimeout(timer);
-        resolve(msg);
-      });
-    });
+    throw new Error("Timeout waiting for message");
   }
 
   async waitForMessageType(type: string, timeout: number = 5000): Promise<any> {
@@ -255,20 +265,15 @@ export class TestWebSocketClient {
     while (Date.now() - startTime < timeout) {
       const queuedIndex = this.messageQueue.findIndex((m) => m.type === type);
       if (queuedIndex > -1) {
+        this.log("Found queued message:", type);
         return this.messageQueue.splice(queuedIndex, 1)[0];
       }
 
-      try {
-        const msg = await this.waitForMessage(timeout - (Date.now() - startTime));
-        if (msg.type === type) {
-          return msg;
-        }
-        this.messageQueue.push(msg);
-      } catch {
-        break;
-      }
+      // Yield to event loop to allow messages to be processed
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
 
+    this.log("Timeout! Queue contents:", this.messageQueue.map(m => m.type));
     throw new Error(`Timeout waiting for message type: ${type}`);
   }
 
@@ -317,19 +322,17 @@ export class TestWebSocketClient {
   }
 }
 
-// Test data generator
-let testCounter = 0;
-
+// Test data generator - use timestamp + random for uniqueness across test runs
 export function generateTestEmail(): string {
-  const id = (++testCounter).toString().padStart(4, '0');
+  const ts = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 6);
-  return `test${id}${random}@example.com`;
+  return `test${ts}${random}@example.com`;
 }
 
 export function generateTestUsername(): string {
-  const id = (++testCounter).toString().padStart(3, '0');
+  const ts = Date.now().toString(36).slice(-4);
   const random = Math.random().toString(36).substring(2, 6);
-  return `tuser${id}${random}`;
+  return `tu${ts}${random}`; // max 12 chars
 }
 
 export { BACKEND_URL, WS_URL, BACKEND_PORT, WS_PORT };

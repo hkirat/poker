@@ -136,11 +136,14 @@ async function stopServices(): Promise<void> {
 async function cleanupTestData(): Promise<void> {
   try {
     const { db, sql } = await import("@poker/db");
-    await db.execute(sql`DELETE FROM game_history WHERE room_id IN (SELECT id FROM rooms WHERE name LIKE 'Test Room%')`);
-    await db.execute(sql`DELETE FROM transactions WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'test%@example.com')`);
-    await db.execute(sql`DELETE FROM table_players WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'test%@example.com')`);
-    await db.execute(sql`DELETE FROM rooms WHERE name LIKE 'Test Room%'`);
-    await db.execute(sql`DELETE FROM users WHERE email LIKE 'test%@example.com'`);
+    // Delete in correct order to respect foreign key constraints
+    await db.execute(sql`DELETE FROM game_history WHERE room_id IN (SELECT id FROM rooms WHERE name LIKE 'Test Room%' OR name LIKE 'E2E%' OR name LIKE 'Debug%')`);
+    await db.execute(sql`DELETE FROM transactions WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'test%@example.com' OR email LIKE 'debug%@test.com')`);
+    await db.execute(sql`DELETE FROM table_players WHERE room_id IN (SELECT id FROM rooms WHERE name LIKE 'Test Room%' OR name LIKE 'E2E%' OR name LIKE 'Debug%')`);
+    await db.execute(sql`DELETE FROM table_players WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'test%@example.com' OR email LIKE 'debug%@test.com')`);
+    // Delete rooms before users (rooms reference users via created_by)
+    await db.execute(sql`DELETE FROM rooms WHERE name LIKE 'Test Room%' OR name LIKE 'E2E%' OR name LIKE 'Debug%'`);
+    await db.execute(sql`DELETE FROM users WHERE email LIKE 'test%@example.com' OR email LIKE 'debug%@test.com'`);
   } catch (error) {
     console.error("Cleanup error:", error);
   }
