@@ -6,7 +6,8 @@ import { useWebSocket } from '@/context/WebSocketContext';
 import { getRoom, joinRoom as apiJoinRoom, leaveRoom as apiLeaveRoom } from '@/lib/api';
 import { PokerTable } from '@/components/PokerTable';
 import { JoinTableModal } from '@/components/JoinTableModal';
-import { ArrowLeft, Wifi, WifiOff, LogOut, Coins, Spade } from 'lucide-react';
+import { Chat } from '@/components/Chat';
+import { ArrowLeft, Wifi, WifiOff, LogOut, Coins, Spade, Volume2, VolumeX } from 'lucide-react';
 import type { PlayerStatus, RoomStatus } from '@poker/types';
 
 interface RoomData {
@@ -40,6 +41,13 @@ export function GamePage() {
   const [loading, setLoading] = useState(true);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [isSeated, setIsSeated] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('poker-sound-muted') === 'true');
+
+  const toggleSound = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    localStorage.setItem('poker-sound-muted', String(newMuted));
+  };
 
   useEffect(() => {
     if (id) {
@@ -159,6 +167,24 @@ export function GamePage() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Sound toggle */}
+            <button
+              onClick={toggleSound}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200"
+              style={{
+                background: 'linear-gradient(135deg, hsl(240 15% 15% / 0.8) 0%, hsl(240 15% 10% / 0.8) 100%)',
+                border: '1px solid hsl(32 94% 44% / 0.2)',
+                color: isMuted ? 'hsl(0 0% 50%)' : 'hsl(43 96% 56%)',
+              }}
+              title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
+            >
+              {isMuted ? (
+                <VolumeX className="w-4 h-4" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </button>
+
             {/* Connection status */}
             <div
               className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
@@ -215,6 +241,9 @@ export function GamePage() {
           }}
         />
       )}
+
+      {/* Chat */}
+      {isSeated && <Chat />}
     </div>
   );
 }

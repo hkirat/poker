@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useCallback, useState, ReactNode } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { useGameStore } from '@/store/game';
+import { globalSoundPlayer } from '@/hooks/useSound';
 import type { PlayerAction, Card, Player, GamePhase } from '@poker/types';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
@@ -10,6 +11,7 @@ interface WebSocketContextType {
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   sendAction: (action: PlayerAction, amount?: number) => void;
+  sendChatMessage: (message: string) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -19,7 +21,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const reconnectTimeoutRef = useRef<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const token = useAuthStore((s) => s.token);
-  const { updateGameState, setMyCards, setTimeRemaining, setConnected, setHandResult } = useGameStore();
+  const { updateGameState, setMyCards, setTimeRemaining, setConnected, setHandResult, setBustedPlayer, addChatMessage } = useGameStore();
 
   const handleMessage = useCallback((message: { type: string; payload: Record<string, unknown> }) => {
     console.log('WS Message:', message.type, message.payload);
@@ -47,6 +49,27 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           yourCards?: Card[];
         };
 
+        // Play sounds for game events
+        const currentState = useGameStore.getState();
+        if (message.type === 'new_round') {
+          // New hand - play card deal sound
+          globalSoundPlayer.play('cardDeal');
+        } else if (payload.communityCards && payload.communityCards.length > (currentState.communityCards?.length || 0)) {
+          // New community cards dealt (flop/turn/river)
+          globalSoundPlayer.play('cardFlip');
+        }
+
+        // Check if it's our turn now
+        const currentUser = useAuthStore.getState().user;
+        if (
+          payload.players &&
+          payload.currentPlayerIndex !== undefined &&
+          payload.players[payload.currentPlayerIndex]?.userId === currentUser?.id &&
+          currentState.players[currentState.currentPlayerIndex]?.userId !== currentUser?.id
+        ) {
+          globalSoundPlayer.play('yourTurn');
+        }
+
         updateGameState({
           phase: payload.phase as GamePhase,
           pot: payload.pot,
@@ -70,9 +93,31 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         console.log('Player joined:', message.payload);
         break;
 
-      case 'player_left':
+      case 'player_left': {
         console.log('Player left:', message.payload);
+        const leftPayload = message.payload as {
+          userId: string;
+          reason?: string;
+        };
+        // Update players list to remove the player
+        const currentPlayers = useGameStore.getState().players;
+        const leftPlayer = currentPlayers.find(p => p.userId === leftPayload.userId);
+        updateGameState({
+          players: currentPlayers.filter(p => p.userId !== leftPayload.userId),
+        });
+        // Show busted notification if the player ran out of chips
+        if (leftPayload.reason === 'busted' && leftPlayer) {
+          setBustedPlayer({
+            userId: leftPayload.userId,
+            username: leftPlayer.username,
+          });
+          // Clear notification after 3 seconds
+          setTimeout(() => {
+            setBustedPlayer(null);
+          }, 3000);
+        }
         break;
+      }
 
       case 'player_sat_out': {
         const satOutPayload = message.payload as {
@@ -89,14 +134,40 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         setTimeRemaining(30);
         break;
 
-      case 'action_result':
+      case 'action_result': {
         console.log('Action result:', message.payload);
+        const actionPayload = message.payload as {
+          userId: string;
+          action: string;
+          amount?: number;
+        };
+        // Play sound based on action
+        switch (actionPayload.action) {
+          case 'fold':
+            globalSoundPlayer.play('fold');
+            break;
+          case 'check':
+            globalSoundPlayer.play('check');
+            break;
+          case 'call':
+          case 'raise':
+          case 'all-in':
+            globalSoundPlayer.play('chipsBet');
+            break;
+        }
         break;
+      }
 
       case 'timer_update': {
-        const timerPayload = message.payload as { remaining?: number; timedOut?: boolean };
+        const timerPayload = message.payload as { remaining?: number; timedOut?: boolean; userId?: string };
         if (timerPayload.remaining !== undefined) {
-          setTimeRemaining(Math.floor(timerPayload.remaining / 1000));
+          const seconds = Math.floor(timerPayload.remaining / 1000);
+          setTimeRemaining(seconds);
+          // Play warning sound when time is low and it's our turn
+          const currentUserId = useAuthStore.getState().user?.id;
+          if (seconds <= 10 && seconds > 0 && timerPayload.userId === currentUserId) {
+            globalSoundPlayer.play('timerWarning');
+          }
         }
         break;
       }
@@ -107,6 +178,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           winners: Array<{ userId: string; username: string; amount: number }>;
           pot: number;
         };
+        // Play win sound
+        globalSoundPlayer.play('chipsWin');
         // Set the hand result to display winner
         setHandResult(resultPayload);
         // Reset phase to waiting so action buttons are hidden until new hand starts
@@ -121,11 +194,24 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         break;
       }
 
+      case 'chat_message': {
+        const chatPayload = message.payload as {
+          id: string;
+          userId: string;
+          username: string;
+          message: string;
+          timestamp: number;
+        };
+        addChatMessage(chatPayload);
+        globalSoundPlayer.play('message');
+        break;
+      }
+
       case 'error':
         console.error('WebSocket error:', message.payload);
         break;
     }
-  }, [updateGameState, setMyCards, setTimeRemaining, setHandResult]);
+  }, [updateGameState, setMyCards, setTimeRemaining, setHandResult, setBustedPlayer, addChatMessage]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -208,8 +294,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const sendChatMessage = useCallback((message: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && message.trim()) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'chat_message',
+          payload: { message: message.trim() },
+        })
+      );
+    }
+  }, []);
+
   return (
-    <WebSocketContext.Provider value={{ isConnected, joinRoom, leaveRoom, sendAction }}>
+    <WebSocketContext.Provider value={{ isConnected, joinRoom, leaveRoom, sendAction, sendChatMessage }}>
       {children}
     </WebSocketContext.Provider>
   );

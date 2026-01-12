@@ -195,6 +195,9 @@ function handleMessage(ws: WebSocket, data: string): void {
     case 'spectate':
       handleSpectate(ws, connection, message.payload);
       break;
+    case 'chat_message':
+      handleChatMessage(ws, connection, message.payload);
+      break;
     default:
       sendError(ws, `Unknown message type: ${message.type}`);
   }
@@ -385,6 +388,45 @@ async function handleSpectate(
       payload: { roomId },
     })
   );
+}
+
+function handleChatMessage(
+  ws: WebSocket,
+  connection: ClientConnection,
+  payload: Record<string, unknown>
+): void {
+  if (!connection.user || !connection.roomId) {
+    sendError(ws, 'Not in a room');
+    return;
+  }
+
+  const { message: chatMessage } = payload as { message: string };
+
+  if (!chatMessage || typeof chatMessage !== 'string' || chatMessage.trim().length === 0) {
+    return;
+  }
+
+  // Sanitize and limit message length
+  const sanitizedMessage = chatMessage.trim().slice(0, 200);
+
+  // Create chat message payload
+  const chatPayload = {
+    id: crypto.randomUUID(),
+    userId: connection.user.userId,
+    username: connection.user.username,
+    message: sanitizedMessage,
+    timestamp: Date.now(),
+  };
+
+  // Broadcast to all connections in the same room
+  for (const [clientWs, clientConnection] of connections) {
+    if (clientConnection.roomId === connection.roomId && clientWs.readyState === WebSocket.OPEN) {
+      clientWs.send(JSON.stringify({
+        type: 'chat_message',
+        payload: chatPayload,
+      }));
+    }
+  }
 }
 
 function sendError(ws: WebSocket, message: string): void {

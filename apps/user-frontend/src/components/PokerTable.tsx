@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/auth';
 import { PlayingCard } from './PlayingCard';
 import { PlayerSeat } from './PlayerSeat';
 import { ActionButtons } from './ActionButtons';
-import { Sparkles, Trophy, Coins } from 'lucide-react';
+import { Sparkles, Trophy, Coins, AlertTriangle } from 'lucide-react';
 import type { PlayerStatus } from '@poker/types';
 
 interface RoomData {
@@ -37,7 +37,7 @@ const SEAT_POSITIONS: Record<number, { top: string; left: string }> = {
 
 export function PokerTable({ room }: { room: RoomData }) {
   const user = useAuthStore((s) => s.user);
-  const { phase, pot, communityCards, players, currentPlayerIndex, myCards, timeRemaining, handResult } =
+  const { phase, pot, communityCards, players, currentPlayerIndex, myCards, timeRemaining, handResult, bustedPlayer } =
     useGameStore();
 
   // Get current player from game state or room data
@@ -102,6 +102,26 @@ export function PokerTable({ room }: { room: RoomData }) {
             <div className="text-gray-500 mt-3 text-sm">
               Pot: {handResult.pot.toLocaleString()} chips
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Busted Player Notification */}
+      {bustedPlayer && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
+          <div
+            className="rounded-xl px-6 py-3 flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(135deg, hsl(0 70% 20% / 0.95) 0%, hsl(0 70% 15% / 0.95) 100%)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid hsl(0 70% 50% / 0.4)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+            <span className="text-red-200 font-medium">
+              {bustedPlayer.username} ran out of chips!
+            </span>
           </div>
         </div>
       )}
@@ -190,9 +210,13 @@ export function PokerTable({ room }: { room: RoomData }) {
         />
       )}
 
-      {/* My Cards (larger display at bottom) */}
+      {/* My Cards (larger display at bottom) - moves up when action buttons are showing */}
       {myCards.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20 animate-slide-up">
+        <div
+          className={`fixed left-1/2 transform -translate-x-1/2 z-20 animate-slide-up transition-all duration-300 ${
+            isMyTurn && phase !== 'waiting' && phase !== 'showdown' ? 'bottom-52' : 'bottom-4'
+          }`}
+        >
           <div
             className="rounded-2xl p-4 flex items-center gap-4"
             style={{
