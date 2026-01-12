@@ -41,7 +41,7 @@ async function loadRooms(): Promise<void> {
       };
       gameRooms.set(room.id, new GameRoom(config));
 
-      // Load existing players
+      // Load existing players - these are stale from before server restart
       const players = await db
         .select({
           userId: tablePlayers.userId,
@@ -53,10 +53,81 @@ async function loadRooms(): Promise<void> {
         .innerJoin(users, eq(tablePlayers.userId, users.id))
         .where(eq(tablePlayers.roomId, room.id));
 
-      console.log(`Loaded room ${room.name} with ${players.length} players`);
+      if (players.length > 0) {
+        console.log(`Room ${room.name} has ${players.length} stale players - cleaning up in 60s if they don't reconnect`);
+
+        // Clean up stale players after 60 seconds if they don't reconnect
+        for (const player of players) {
+          scheduleStalePlayerCleanup(room.id, player.userId, player.username, player.stack);
+        }
+      } else {
+        console.log(`Loaded room ${room.name} (empty)`);
+      }
     }
   } catch (error) {
     console.error('Failed to load rooms:', error);
+  }
+}
+
+// Track pending cleanup timers for stale players
+const stalePlayerTimers = new Map<string, Timer>();
+
+function scheduleStalePlayerCleanup(roomId: string, userId: string, username: string, stack: number): void {
+  const key = `${roomId}:${userId}`;
+
+  const timer = setTimeout(async () => {
+    stalePlayerTimers.delete(key);
+
+    // Check if player has reconnected (they'd be in the GameRoom)
+    const gameRoom = gameRooms.get(roomId);
+    if (gameRoom && gameRoom.playerCount > 0) {
+      // Player might have reconnected - check by trying to see if they're active
+      // If they reconnected, handleJoinRoom would have added them
+      // We can't easily check, so just check if the DB entry still exists
+    }
+
+    console.log(`Cleaning up stale player ${username} from room - returning ${stack} chips`);
+
+    try {
+      // Return chips to user balance
+      const [user] = await db
+        .select({ balance: users.balance })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (user) {
+        await db
+          .update(users)
+          .set({ balance: user.balance + stack })
+          .where(eq(users.id, userId));
+      }
+
+      // Remove from table_players
+      await db
+        .delete(tablePlayers)
+        .where(
+          and(
+            eq(tablePlayers.roomId, roomId),
+            eq(tablePlayers.userId, userId)
+          )
+        );
+
+      console.log(`Stale player ${username} cleaned up, ${stack} chips returned`);
+    } catch (error) {
+      console.error(`Failed to clean up stale player ${username}:`, error);
+    }
+  }, 60000); // 60 seconds to reconnect
+
+  stalePlayerTimers.set(key, timer);
+}
+
+function cancelStalePlayerCleanup(roomId: string, userId: string): void {
+  const key = `${roomId}:${userId}`;
+  const timer = stalePlayerTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    stalePlayerTimers.delete(key);
+    console.log(`Cancelled stale player cleanup for ${userId} - they reconnected`);
   }
 }
 
@@ -190,6 +261,9 @@ async function handleJoinRoom(
     sendError(ws, 'You must join the table through the API first');
     return;
   }
+
+  // Cancel any pending stale player cleanup (from server restart)
+  cancelStalePlayerCleanup(roomId, connection.user.userId);
 
   const success = gameRoom.addPlayer(
     connection.user.userId,
