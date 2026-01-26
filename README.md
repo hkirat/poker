@@ -110,7 +110,7 @@ cd apps/admin-frontend && bun run dev
 - User Frontend: http://localhost:5173
 - Admin Frontend: http://localhost:5174
 - Backend API: http://localhost:3000
-- WebSocket: ws://localhost:3001
+- WebSocket: ws: http://localhost:3001
 
 ## API Endpoints
 
