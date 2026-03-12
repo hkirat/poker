@@ -12,18 +12,28 @@ stages {
             sh 'docker build -t pks2906/poker-admin-frontend -f docker/frontend.Dockerfile .'
         }
     }
-
-    stage('Push Images to Docker Hub') {
+stage('Push Images to Docker Hub') {
 steps {
-withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-sh 'echo $PASS | docker login -u $USER --password-stdin'
-sh 'docker push pks2906/poker-backend'
-sh 'docker push pks2906/poker-websocket'
-sh 'docker push pks2906/poker-user-frontend'
-sh 'docker push pks2906/poker-admin-frontend'
+withCredentials([usernamePassword(
+credentialsId: 'dockerhub',
+usernameVariable: 'DOCKER_USER',
+passwordVariable: 'DOCKER_PASS'
+)]) {
+
+        sh '''
+        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+        docker push pks2906/poker-backend
+        docker push pks2906/poker-websocket
+        docker push pks2906/poker-user-frontend
+        docker push pks2906/poker-admin-frontend
+        '''
+    }
 }
+
+
 }
-}
+
 
 
     stage('Deploy to Kubernetes') {
