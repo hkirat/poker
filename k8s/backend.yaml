@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: poker
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+
+    spec:
+      containers:
+        - name: backend
+          image: pks2906/poker-backend:latest
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: DATABASE_URL
+              value: postgres://postgres:postgres@postgres:5432/poker
+
+            - name: JWT_SECRET
+              value: dev-secret-key

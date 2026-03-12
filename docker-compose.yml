@@ -1,0 +1,92 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: poker-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: poker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: poker-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  websocket:
+    build:
+      context: .
+      dockerfile: docker/websocket.Dockerfile
+    container_name: poker-websocket
+    restart: always
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  user-frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: poker-user-frontend
+    ports:
+      - "5173:4173"
+
+    depends_on:
+      - backend
+
+    ulimits:
+      nofile:
+        soft: 200000
+        hard: 200000
+
+
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: poker-admin-frontend
+    ports:
+      - "5174:4173"
+
+    depends_on:
+      - backend
+
+    ulimits:
+      nofile:
+        soft: 200000
+        hard: 200000
+
+
+volumes:
+  postgres-data:

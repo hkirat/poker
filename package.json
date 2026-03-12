@@ -19,7 +19,7 @@
     "start:admin-frontend": "bunx serve apps/admin-frontend/dist -s -l 5174"
   },
   "devDependencies": {
-    "turbo": "^2.3.0",
+    "turbo": "2.3.0",
     "typescript": "^5.3.3"
   },
   "packageManager": "bun@1.1.0"

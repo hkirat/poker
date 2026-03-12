@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-frontend
+  namespace: poker
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: admin-frontend
+
+  template:
+    metadata:
+      labels:
+        app: admin-frontend
+
+    spec:
+      containers:
+        - name: admin-frontend
+          image: pks2906/poker-admin-frontend:latest
+
+          ports:
+            - containerPort: 4173
