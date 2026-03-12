@@ -14,14 +14,17 @@ stages {
     }
 
     stage('Push Images to Docker Hub') {
-        steps {
-            sh 'docker login -u pks2906 -p $DOCKERHUB_PASSWORD'
-            sh 'docker push pks2906/poker-backend'
-            sh 'docker push pks2906/poker-websocket'
-            sh 'docker push pks2906/poker-user-frontend'
-            sh 'docker push pks2906/poker-admin-frontend'
-        }
-    }
+steps {
+withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+sh 'echo $PASS | docker login -u $USER --password-stdin'
+sh 'docker push pks2906/poker-backend'
+sh 'docker push pks2906/poker-websocket'
+sh 'docker push pks2906/poker-user-frontend'
+sh 'docker push pks2906/poker-admin-frontend'
+}
+}
+}
+
 
     stage('Deploy to Kubernetes') {
         steps {
